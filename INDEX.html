@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나의 경조사 내역 검색기</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --bg-color: #f5f7fa;
+            --text-color: #333;
+            --border-color: #e1e4e8;
+        }
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            background-color: #fff;
+            width: 100%;
+            max-width: 1000px;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .search-box {
+            flex: 1;
+            min-width: 300px;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 12px 15px;
+            font-size: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .search-box input:focus {
+            border-color: var(--primary-color);
+        }
+        .summary {
+            background-color: #e8f4fd;
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .summary span {
+            color: #e74c3c;
+            font-size: 22px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            color: #495057;
+            position: sticky;
+            top: 0;
+        }
+        tbody tr:hover {
+            background-color: #f1f3f5;
+        }
+        .amount {
+            text-align: right;
+            font-weight: 500;
+        }
+        .no-data {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>경조사 내역 검색 및 통계</h1>
+    
+    <div class="controls">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="성명, 소속, 또는 경조사명을 입력하세요...">
+        </div>
+        <div class="summary">
+            검색된 총 금액: <span id="totalAmount">0</span> 원
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th width="20%">경조사명</th>
+                <th width="20%">성명</th>
+                <th width="40%">소속 / 비고</th>
+                <th width="20%">금액 (원)</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // 통합된 경조사 데이터
+    const rawData = [
+        // --- [모친 조문 - 지인들] ---
+        { event: "모친 조문", name: "황정하", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "황정하", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "황영규(고딩 친구)", affiliation: "고딩친구", amount: 50000 },
+        { event: "모친 조문", name: "황선우", affiliation: "남원농구", amount: 50000 },
+        { event: "모친 조문", name: "황상연", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "허용(고딩 친구)", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "허서준", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "한두인", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "하정수, 김선진 집사님", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "하정만", affiliation: "선생님", amount: 50000 },
+        { event: "모친 조문", name: "최홍준", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "최홍상", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "최항령", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "최정윤, 강명옥 집사님", affiliation: "영광교회", amount: 30000 },
+        { event: "모친 조문", name: "최재원", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "최일기", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "최은아", affiliation: "앙상블젬", amount: 50000 },
+        { event: "모친 조문", name: "최은선", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "최윤실", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "최원구", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "최영성", affiliation: "영우", amount: 100000 },
+        { event: "모친 조문", name: "최성진", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "최선영", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "최범근 세이버스", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "최능원", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "최규용", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "최광선", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "최강석", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "채수인", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "진입명", affiliation: "은하수", amount: 300000 },
+        { event: "모친 조문", name: "진기환", affiliation: "고딩친구", amount: 50000 },
+        { event: "모친 조문", name: "지윤환", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "지영석", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "조철인", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "조은희 21기", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "조영주", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "조선웅 21기", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "조경륜", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "제3남선교회", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "정찬양", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "정점용,이금숙", affiliation: "영광교회", amount: 200000 },
+        { event: "모친 조문", name: "정영웅 김지연", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "정숙진", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "정수효", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "정성태", affiliation: "고딩친구", amount: 50000 },
+        { event: "모친 조문", name: "정동진 세이버스", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "정구식", affiliation: "영우", amount: 50000 },
+        { event: "모친 조문", name: "정갑수", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "전주사대부", affiliation: "-", amount: 200000 },
+        { event: "모친 조문", name: "전일환", affiliation: "소리내음", amount: 50000 },
+        { event: "모친 조문", name: "전인호", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "전송묵", affiliation: "선생님", amount: 50000 },
+        { event: "모친 조문", name: "장호법", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "장춘호 (남원농구)", affiliation: "남원농구", amount: 50000 },
+        { event: "모친 조문", name: "장정화", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "장인태", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "장수경", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "장민수", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "임형렬", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "임준현", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "임준영", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "임종운", affiliation: "앙상블젬", amount: 50000 },
+        { event: "모친 조문", name: "임정연", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "임완택", affiliation: "남원농구", amount: 50000 },
+        { event: "모친 조문", name: "임영수", affiliation: "고딩친구", amount: 50000 },
+        { event: "모친 조문", name: "임승근", affiliation: "소리내음", amount: 50000 },
+        { event: "모친 조문", name: "임방희", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "임만규", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "임동환", affiliation: "남원농구", amount: 50000 },
+        { event: "모친 조문", name: "이태경", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "이충용", affiliation: "고딩친구", amount: 50000 },
+        { event: "모친 조문", name: "이창근 21기", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "이찬옥", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "이진용", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "이정환", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "이정철 농구", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "이정국", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "이점동", affiliation: "영우", amount: 50000 },
+        { event: "모친 조문", name: "이장로", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "이은수", affiliation: "남원농구", amount: 50000 },
+        { event: "모친 조문", name: "이은세", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "이은성", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "이영훈", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "이연정", affiliation: "찐친", amount: 100000 },
+        { event: "모친 조문", name: "이승헌", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "이승진", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "이승엽", affiliation: "고딩친구", amount: 50000 },
+        { event: "모친 조문", name: "이수민 21기", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "이수근 고딩칭구", affiliation: "고딩친구", amount: 50000 },
+        { event: "모친 조문", name: "이석주", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "이사현", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "이민식", affiliation: "어울림", amount: 50000 },
+        { event: "모친 조문", name: "이명석", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "이동렬", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "이도현", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "이규태", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "이광현", affiliation: "은하수", amount: 200000 },
+        { event: "모친 조문", name: "이광선", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "윤치선", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "윤진경(꾸브라꼬)", affiliation: "영우", amount: 100000 },
+        { event: "모친 조문", name: "윤오성 전일고6회", affiliation: "전일고", amount: 50000 },
+        { event: "모친 조문", name: "윤소영(지연친구)", affiliation: "지연친구", amount: 100000 },
+        { event: "모친 조문", name: "유치부", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "유영석", affiliation: "세이버스", amount: 100000 },
+        { event: "모친 조문", name: "유성만 전일고 형님", affiliation: "전일고", amount: 50000 },
+        { event: "모친 조문", name: "유민성", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "오현철 세이버스", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "오영민(wooil)", affiliation: "-", amount: 100000 },
+        { event: "모친 조문", name: "오승재", affiliation: "남원농구", amount: 50000 },
+        { event: "모친 조문", name: "오균섭 서은순", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "영광교회 최은순,김호곤", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "영광교회 조상훈, 나삼숙", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "영광교회 장세권 교영하", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "영광교회 이홍규", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "영광교회 이병호", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "영광교회 이강석", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "영광교회 강명희", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "영광교회 4여전도회", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "양지현(지연 친구)", affiliation: "지연친구", amount: 100000 },
+        { event: "모친 조문", name: "양용환 김선영", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "양영수", affiliation: "영우", amount: 50000 },
+        { event: "모친 조문", name: "양승렬", affiliation: "선생님", amount: 50000 },
+        { event: "모친 조문", name: "양미라", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "양도영", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "안성현", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "안기수 노은희", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "송호석", affiliation: "세이버스", amount: 100000 },
+        { event: "모친 조문", name: "송제홍", affiliation: "소리내음", amount: 50000 },
+        { event: "모친 조문", name: "송재범(은하수5기)", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "송재득", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "손민표", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "소지영", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "소유섭", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "성가대", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "설민수", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "서진아", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "서진수", affiliation: "어울림", amount: 100000 },
+        { event: "모친 조문", name: "서정민 2기", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "빈성우", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "백승원", affiliation: "영우", amount: 50000 },
+        { event: "모친 조문", name: "백민정", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "백기동", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "배재용", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "배영애", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "배두현", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "방규철", affiliation: "영우", amount: 50000 },
+        { event: "모친 조문", name: "박평훈", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "박춘우", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "박지홍", affiliation: "세이버스", amount: 100000 },
+        { event: "모친 조문", name: "박주홍", affiliation: "영우", amount: 100000 },
+        { event: "모친 조문", name: "박종호 목사", affiliation: "영광교회", amount: 100000 },
+        { event: "모친 조문", name: "박종하", affiliation: "찐친", amount: 200000 },
+        { event: "모친 조문", name: "박인근", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "박은영(범희님 여친)", affiliation: "영우", amount: 50000 },
+        { event: "모친 조문", name: "박은미", affiliation: "소리내음", amount: 50000 },
+        { event: "모친 조문", name: "박원균", affiliation: "남원농구", amount: 50000 },
+        { event: "모친 조문", name: "박승민", affiliation: "은하수", amount: 200000 },
+        { event: "모친 조문", name: "박세진", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "박상훈", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "박병준", affiliation: "고딩친구", amount: 50000 },
+        { event: "모친 조문", name: "박민영 팀장님(마케팅)", affiliation: "영우", amount: 50000 },
+        { event: "모친 조문", name: "박민수", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "박대성", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "박강미", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "문정은", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "문남용", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "노천수", affiliation: "소리내음", amount: 50000 },
+        { event: "모친 조문", name: "노연주(기영이 엄마)", affiliation: "지연친구", amount: 50000 },
+        { event: "모친 조문", name: "남호형", affiliation: "앙상블젬", amount: 50000 },
+        { event: "모친 조문", name: "남원영광교회 선정주 강선주", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "남기만", affiliation: "은하수", amount: 200000 },
+        { event: "모친 조문", name: "김형진", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "김현태", affiliation: "소리내음", amount: 50000 },
+        { event: "모친 조문", name: "김현중", affiliation: "남원농구", amount: 100000 },
+        { event: "모친 조문", name: "김현석", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "김태진", affiliation: "고딩친구", amount: 50000 },
+        { event: "모친 조문", name: "김창호", affiliation: "소리내음", amount: 50000 },
+        { event: "모친 조문", name: "김진택", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "김지형", affiliation: "고딩친구", amount: 50000 },
+        { event: "모친 조문", name: "김준홍", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "김준상", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "김주동", affiliation: "소리내음", amount: 50000 },
+        { event: "모친 조문", name: "김종칠", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "김종수", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "김정훈", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "김정환", affiliation: "고딩친구", amount: 50000 },
+        { event: "모친 조문", name: "김정용", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "김정모", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "김정관", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "김인수", affiliation: "은하수", amount: 200000 },
+        { event: "모친 조문", name: "김의종", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "김의수", affiliation: "세이버스", amount: 100000 },
+        { event: "모친 조문", name: "김윤혜 21기", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "김유진(송재득)", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "김원식", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "김용운", affiliation: "고딩친구", amount: 50000 },
+        { event: "모친 조문", name: "김옥란(영광교회)", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "김영민", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "김승연", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "김슬기(지연친구)", affiliation: "지연친구", amount: 100000 },
+        { event: "모친 조문", name: "김수원", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "김수복 집사님", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "김송이 (남원분석실)", affiliation: "영우", amount: 50000 },
+        { event: "모친 조문", name: "김성원", affiliation: "소리내음", amount: 100000 },
+        { event: "모친 조문", name: "김성신", affiliation: "고딩친구", amount: 50000 },
+        { event: "모친 조문", name: "김성면", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "김성규 팀장님", affiliation: "영우", amount: 50000 },
+        { event: "모친 조문", name: "김선지 집사님", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "김서정", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "김병현", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "김병만", affiliation: "어울림", amount: 50000 },
+        { event: "모친 조문", name: "김범식", affiliation: "남원농구", amount: 50000 },
+        { event: "모친 조문", name: "김민재 소리내음", affiliation: "소리내음", amount: 50000 },
+        { event: "모친 조문", name: "김미주", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "김미경", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "김명희", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "김동진", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "김동영 16기", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "김동건", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "김경주", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "김경옥", affiliation: "앙상블젬", amount: 50000 },
+        { event: "모친 조문", name: "김경수", affiliation: "어울림", amount: 50000 },
+        { event: "모친 조문", name: "김강석(세이버스)", affiliation: "세이버스", amount: 50000 },
+        { event: "모친 조문", name: "권재형(소첼_3엠)", affiliation: "영우", amount: 200000 },
+        { event: "모친 조문", name: "권영욱", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "권영갑,박희숙", affiliation: "영광교회", amount: 50000 },
+        { event: "모친 조문", name: "권경재", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "국윤성", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "구자인", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "공명희", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "고상길", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "고범준", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "고기동", affiliation: "은하수", amount: 100000 },
+        { event: "모친 조문", name: "경량훈", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "강철구", affiliation: "고딩친구", amount: 100000 },
+        { event: "모친 조문", name: "강신웅 21기", affiliation: "은하수", amount: 50000 },
+        { event: "모친 조문", name: "강신열", affiliation: "세이버스", amount: 100000 },
+        { event: "모친 조문", name: "강순일(소리내음)", affiliation: "소리내음", amount: 50000 },
+        { event: "모친 조문", name: "강성일", affiliation: "은하수", amount: 100000 },
+        
+        // --- [모친 조문 - 회사] ---
+        { event: "모친 조문", name: "유종원", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김보성", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "정달문", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "고충현", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "양인석", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "장기탁", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "허준호", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김성식", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "왕영일", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "남혜인", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "강은철", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "최소희", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "박재현", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김유환", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "한범희", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "엄윤정", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김재화", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "이진철", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "정연주", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "이춘근", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "윤영문", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "송상현", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "구성진", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "임용수", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "이호영", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "박훈우", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김세진", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "이계승", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "이동석", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "노병훈", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "정광현", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "여동원", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "곽은석", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "정유진", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "정연택", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "정병인", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "심아영", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "박현진", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "홍상락", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김정민", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "서혜린", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김재경", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "곽영수", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김불휘", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "최병용", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "이지원", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "권미화 이만선", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "곽선자", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "이효섭", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "장현준", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김초록", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "전우성", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김동재", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "신희영", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김동욱", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "신주식", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김창길", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김창수", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "권우성", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김상규", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "김주영", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "박종식", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "김도영", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "오채연", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김수현", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "장은석", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "이병화", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "이재철", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "박근호", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김량희", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "정성호", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김덕호", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김주연", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "박재환", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "이진희", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "안미영", affiliation: "회사", amount: 70000 },
+        { event: "모친 조문", name: "차수진", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "이솔지", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "이슬비", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "최원석", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "구본석", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "임종찬", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "소관영", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "정민지", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "배현영", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "염선민", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "송은지", affiliation: "회사", amount: 70000 },
+        { event: "모친 조문", name: "주상식", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김현태", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "최태명", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "이준행", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "김민규", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "류용철", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "황호웅", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "남장우", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "채병훈", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "최봉규", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김영식", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "천대경", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김광호", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "이지원(남원)", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "권일석 (치선매형)", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "박상배", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "송항용(QDR)", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "권오상 팀장님", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "양영주(남원인사)", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "고지혜(인천품질)", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "송승윤님", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "이동현님", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "박승환님(논산공무)", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "정현수님", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "신종욱님", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김한익님", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "김승진님(혁신)", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "박성수님(구매)", affiliation: "회사", amount: 50000 },
+        { event: "모친 조문", name: "박재성님", affiliation: "회사", amount: 100000 },
+        { event: "모친 조문", name: "김정만님", affiliation: "회사", amount: 50000 },
+
+        // --- [아들 돌잔치] ---
+        { event: "아들 돌잔치", name: "김정환", affiliation: "고딩친구", amount: 50000 },
+        { event: "아들 돌잔치", name: "김성신", affiliation: "고딩친구", amount: 50000 },
+        { event: "아들 돌잔치", name: "윤치선", affiliation: "고딩친구", amount: 100000 },
+        { event: "아들 돌잔치", name: "허서준", affiliation: "고딩친구", amount: 100000 },
+        { event: "아들 돌잔치", name: "최재원", affiliation: "고딩친구", amount: 100000 },
+        { event: "아들 돌잔치", name: "임형열", affiliation: "고딩친구", amount: 50000 },
+        { event: "아들 돌잔치", name: "이진용", affiliation: "고딩친구", amount: 50000 },
+        { event: "아들 돌잔치", name: "한범희", affiliation: "기술팀", amount: 50000 },
+        { event: "아들 돌잔치", name: "여동원", affiliation: "기술팀", amount: 50000 },
+        { event: "아들 돌잔치", name: "권미화", affiliation: "기술팀", amount: 100000 },
+        { event: "아들 돌잔치", name: "오유라,김수현", affiliation: "기술팀", amount: 100000 },
+        { event: "아들 돌잔치", name: "라승환", affiliation: "기술팀", amount: 50000 },
+        { event: "아들 돌잔치", name: "이미현", affiliation: "기술팀", amount: 50000 },
+        { event: "아들 돌잔치", name: "송승윤", affiliation: "기술팀", amount: 50000 },
+        { event: "아들 돌잔치", name: "정현수", affiliation: "기술팀", amount: 50000 },
+        { event: "아들 돌잔치", name: "권오상", affiliation: "기술팀", amount: 100000 },
+        { event: "아들 돌잔치", name: "박재성", affiliation: "기술팀", amount: 100000 },
+        { event: "아들 돌잔치", name: "허예원", affiliation: "기술팀", amount: 30000 },
+        { event: "아들 돌잔치", name: "전채희", affiliation: "기타(친분)", amount: 100000 },
+        { event: "아들 돌잔치", name: "황선우", affiliation: "남원농구", amount: 50000 },
+        { event: "아들 돌잔치", name: "김범식", affiliation: "남원농구", amount: 50000 },
+        { event: "아들 돌잔치", name: "임완택", affiliation: "남원농구", amount: 50000 },
+        { event: "아들 돌잔치", name: "장춘호", affiliation: "남원농구", amount: 50000 },
+        { event: "아들 돌잔치", name: "제명", affiliation: "세이버스", amount: 30000 },
+        { event: "아들 돌잔치", name: "송호석", affiliation: "세이버스", amount: 50000 },
+        { event: "아들 돌잔치", name: "김의수", affiliation: "세이버스", amount: 50000 },
+        { event: "아들 돌잔치", name: "강신열", affiliation: "세이버스", amount: 100000 },
+        { event: "아들 돌잔치", name: "지영석", affiliation: "세이버스", amount: 100000 },
+        { event: "아들 돌잔치", name: "유영석", affiliation: "세이버스", amount: 100000 },
+        { event: "아들 돌잔치", name: "이현관", affiliation: "세이버스", amount: 150000 },
+        { event: "아들 돌잔치", name: "김정훈", affiliation: "세이버스", amount: 50000 },
+        { event: "아들 돌잔치", name: "안성현", affiliation: "세이버스", amount: 50000 },
+        { event: "아들 돌잔치", name: "박일환", affiliation: "세이버스", amount: 50000 },
+        { event: "아들 돌잔치", name: "임만규", affiliation: "세이버스", amount: 50000 },
+        { event: "아들 돌잔치", name: "태희성", affiliation: "세이버스", amount: 100000 },
+        { event: "아들 돌잔치", name: "유민성", affiliation: "세이버스", amount: 100000 },
+        { event: "아들 돌잔치", name: "정수효", affiliation: "세이버스", amount: 100000 },
+        { event: "아들 돌잔치", name: "장민수", affiliation: "세이버스", amount: 50000 },
+        { event: "아들 돌잔치", name: "송재득", affiliation: "세이버스", amount: 100000 },
+        { event: "아들 돌잔치", name: "진인순", affiliation: "소리내음", amount: 50000 },
+        { event: "아들 돌잔치", name: "송제홍", affiliation: "소리내음", amount: 50000 },
+        { event: "아들 돌잔치", name: "전일환", affiliation: "소리내음", amount: 50000 },
+        { event: "아들 돌잔치", name: "이옥희", affiliation: "소리내음", amount: 50000 },
+        { event: "아들 돌잔치", name: "김현태", affiliation: "소리내음", amount: 50000 },
+        { event: "아들 돌잔치", name: "김명주", affiliation: "소리내음", amount: 50000 },
+        { event: "아들 돌잔치", name: "박은미", affiliation: "소리내음", amount: 50000 },
+        { event: "아들 돌잔치", name: "진정권", affiliation: "소리내음", amount: 50000 },
+        { event: "아들 돌잔치", name: "김민재", affiliation: "소리내음", amount: 50000 },
+        { event: "아들 돌잔치", name: "이제욱", affiliation: "영광교회", amount: 30000 },
+        { event: "아들 돌잔치", name: "1여전도", affiliation: "영광교회", amount: 30000 },
+        { event: "아들 돌잔치", name: "이정윤", affiliation: "영광교회", amount: 50000 },
+        { event: "아들 돌잔치", name: "한두인", affiliation: "영광교회", amount: 50000 },
+        { event: "아들 돌잔치", name: "이지혜", affiliation: "영광교회", amount: 100000 },
+        { event: "아들 돌잔치", name: "양용환", affiliation: "영광교회", amount: 50000 },
+        { event: "아들 돌잔치", name: "박강미", affiliation: "영광교회", amount: 50000 },
+        { event: "아들 돌잔치", name: "박종호 목사님", affiliation: "영광교회", amount: 50000 },
+        { event: "아들 돌잔치", name: "고경미", affiliation: "영광교회", amount: 100000 },
+        { event: "아들 돌잔치", name: "김상규", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "양영주", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "신종욱", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "황원모", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "박소영", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "이희원", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "신주식", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "문우용", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "정상민", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "오정호", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "윤영문", affiliation: "영우냉동", amount: 100000 },
+        { event: "아들 돌잔치", name: "박종면", affiliation: "영우냉동", amount: 100000 },
+        { event: "아들 돌잔치", name: "김상아", affiliation: "영우냉동", amount: 100000 },
+        { event: "아들 돌잔치", name: "권우성", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "허준호", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "류용철", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "김정운", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "왕영일", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "김하정", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "김성규", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "최현", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "박정규", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "김창수", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "곽선자", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "이재훈", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "송상현", affiliation: "영우냉동", amount: 100000 },
+        { event: "아들 돌잔치", name: "윤진경", affiliation: "영우냉동", amount: 100000 },
+        { event: "아들 돌잔치", name: "구성진", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "이승재", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "이춘근", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "방규철", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "여은주", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "송원규", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "최소희", affiliation: "영우냉동", amount: 100000 },
+        { event: "아들 돌잔치", name: "이정곤", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "최봉규", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "정연주", affiliation: "영우냉동", amount: 50000 },
+        { event: "아들 돌잔치", name: "이사현", affiliation: "은하수", amount: 50000 },
+        { event: "아들 돌잔치", name: "이은세", affiliation: "은하수", amount: 50000 },
+        { event: "아들 돌잔치", name: "배재용", affiliation: "은하수", amount: 50000 },
+        { event: "아들 돌잔치", name: "임정연", affiliation: "은하수", amount: 50000 },
+        { event: "아들 돌잔치", name: "진입명", affiliation: "은하수", amount: 100000 },
+        { event: "아들 돌잔치", name: "조철인", affiliation: "은하수", amount: 100000 },
+        { event: "아들 돌잔치", name: "김정용", affiliation: "은하수", amount: 50000 },
+        { event: "아들 돌잔치", name: "최은선", affiliation: "은하수", amount: 50000 },
+        { event: "아들 돌잔치", name: "박상훈", affiliation: "은하수", amount: 50000 },
+        { event: "아들 돌잔치", name: "정갑수", affiliation: "은하수", amount: 50000 },
+        { event: "아들 돌잔치", name: "배영애", affiliation: "은하수", amount: 50000 },
+        { event: "아들 돌잔치", name: "김정모", affiliation: "은하수", amount: 50000 },
+        { event: "아들 돌잔치", name: "김영민", affiliation: "은하수", amount: 100000 },
+        { event: "아들 돌잔치", name: "이찬옥", affiliation: "지란지교", amount: 100000 },
+        { event: "아들 돌잔치", name: "소유섭", affiliation: "지란지교", amount: 100000 },
+        { event: "아들 돌잔치", name: "최성진", affiliation: "지란지교", amount: 100000 },
+        { event: "아들 돌잔치", name: "김경주", affiliation: "지란지교", amount: 100000 },
+        { event: "아들 돌잔치", name: "강성일", affiliation: "지란지교", amount: 100000 },
+        { event: "아들 돌잔치", name: "이태경", affiliation: "지란지교", amount: 100000 },
+        { event: "아들 돌잔치", name: "최광선", affiliation: "지란지교", amount: 100000 },
+        { event: "아들 돌잔치", name: "전은희", affiliation: "지연친구", amount: 100000 },
+        { event: "아들 돌잔치", name: "송혜진", affiliation: "지연친구", amount: 200000 },
+        { event: "아들 돌잔치", name: "양지연", affiliation: "지연친구", amount: 100000 },
+        { event: "아들 돌잔치", name: "서규춘", affiliation: "처가(가족)", amount: 100000 },
+        { event: "아들 돌잔치", name: "서윤희", affiliation: "처가(가족)", amount: 100000 },
+        { event: "아들 돌잔치", name: "서유진", affiliation: "처가(가족)", amount: 100000 },
+        { event: "아들 돌잔치", name: "서미진", affiliation: "처가(가족)", amount: 100000 },
+        { event: "아들 돌잔치", name: "서종만", affiliation: "처가(가족)", amount: 200000 },
+        { event: "아들 돌잔치", name: "이운권", affiliation: "처가(가족)", amount: 200000 },
+        { event: "아들 돌잔치", name: "이윤희", affiliation: "처가(가족)", amount: 100000 },
+        { event: "아들 돌잔치", name: "초대교회", affiliation: "초대교회", amount: 100000 },
+        { event: "아들 돌잔치", name: "고혜석", affiliation: "친가(가족)", amount: 100000 },
+        { event: "아들 돌잔치", name: "고재훈", affiliation: "친가(가족)", amount: 100000 },
+        { event: "아들 돌잔치", name: "박경배", affiliation: "친가(가족)", amount: 200000 },
+        { event: "아들 돌잔치", name: "정병화", affiliation: "친가(가족)", amount: 200000 },
+        { event: "아들 돌잔치", name: "고재영(아버지)", affiliation: "친가(가족)", amount: 1000000 },
+        { event: "아들 돌잔치", name: "소현수", affiliation: "친가(가족)", amount: 50000 },
+        { event: "아들 돌잔치", name: "김형수 이모부", affiliation: "친가(가족)", amount: 100000 },
+        { event: "아들 돌잔치", name: "고효석", affiliation: "친가(가족)", amount: 230000 },
+        { event: "아들 돌잔치", name: "고형석", affiliation: "친가(가족)", amount: 150000 },
+        { event: "아들 돌잔치", name: "안소영", affiliation: "친가(가족)", amount: 66000 },
+
+        // --- [본인 결혼식] ---
+        { event: "본인 결혼식", name: "김수현", affiliation: "생산 2팀", amount: 100000 },
+        { event: "본인 결혼식", name: "문우용", affiliation: "SCM팀", amount: 50000 },
+        { event: "본인 결혼식", name: "이호영", affiliation: "SCM팀", amount: 50000 },
+        { event: "본인 결혼식", name: "노관식", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "이남당", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "최영규", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "권우성", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "유진성", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "신주식", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "민인기", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "강대식", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "김창수", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "오일두", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "정은호", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "도숙현", affiliation: "공무팀", amount: 30000 },
+        { event: "본인 결혼식", name: "박진홍", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "강인범", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "김기곤", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "김동원", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "하재천", affiliation: "영우냉동", amount: 400000 },
+        { event: "본인 결혼식", name: "이상돈", affiliation: "영우냉동", amount: 200000 },
+        { event: "본인 결혼식", name: "김용찬", affiliation: "생산2-2", amount: 100000 },
+        { event: "본인 결혼식", name: "이정곤", affiliation: "연구소", amount: 50000 },
+        { event: "본인 결혼식", name: "유지영", affiliation: "연구소", amount: 50000 },
+        { event: "본인 결혼식", name: "윤슬기", affiliation: "연구소", amount: 50000 },
+        { event: "본인 결혼식", name: "김은이", affiliation: "연구소", amount: 50000 },
+        { event: "본인 결혼식", name: "허윤", affiliation: "연구소", amount: 50000 },
+        { event: "본인 결혼식", name: "정구식", affiliation: "연구소", amount: 50000 },
+        { event: "본인 결혼식", name: "최종택", affiliation: "연구소", amount: 50000 },
+        { event: "본인 결혼식", name: "유현정", affiliation: "연구소", amount: 50000 },
+        { event: "본인 결혼식", name: "한영주", affiliation: "연구소", amount: 50000 },
+        { event: "본인 결혼식", name: "정광현", affiliation: "환경안전", amount: 50000 },
+        { event: "본인 결혼식", name: "허예원", affiliation: "기술팀", amount: 30000 },
+        { event: "본인 결혼식", name: "여동원", affiliation: "기술팀", amount: 50000 },
+        { event: "본인 결혼식", name: "오유라", affiliation: "기술팀", amount: 50000 },
+        { event: "본인 결혼식", name: "임우영", affiliation: "인사팀", amount: 100000 },
+        { event: "본인 결혼식", name: "최봉규", affiliation: "기술팀", amount: 100000 },
+        { event: "본인 결혼식", name: "정상민", affiliation: "기술팀", amount: 100000 },
+        { event: "본인 결혼식", name: "오정호", affiliation: "SCM팀", amount: 50000 },
+        { event: "본인 결혼식", name: "오지선", affiliation: "생산2-1", amount: 50000 },
+        { event: "본인 결혼식", name: "이종민", affiliation: "생산2-2", amount: 30000 },
+        { event: "본인 결혼식", name: "윤진경", affiliation: "생산2-2", amount: 50000 },
+        { event: "본인 결혼식", name: "백현", affiliation: "생산2-2", amount: 30000 },
+        { event: "본인 결혼식", name: "민경현", affiliation: "예전 동료", amount: 50000 },
+        { event: "본인 결혼식", name: "김영식", affiliation: "생산2-2", amount: 50000 },
+        { event: "본인 결혼식", name: "류용철", affiliation: "지원팀", amount: 50000 },
+        { event: "본인 결혼식", name: "왕영일", affiliation: "재무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "김하정", affiliation: "재무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "장용석", affiliation: "환경안전", amount: 50000 },
+        { event: "본인 결혼식", name: "전우성", affiliation: "생산1팀", amount: 50000 },
+        { event: "본인 결혼식", name: "송원규", affiliation: "혁식팀", amount: 50000 },
+        { event: "본인 결혼식", name: "신종욱", affiliation: "SCM팀", amount: 50000 },
+        { event: "본인 결혼식", name: "양영주", affiliation: "생산1팀", amount: 50000 },
+        { event: "본인 결혼식", name: "원리나", affiliation: "인사팀", amount: 50000 },
+        { event: "본인 결혼식", name: "임은성", affiliation: "생산1팀", amount: 50000 },
+        { event: "본인 결혼식", name: "김완호", affiliation: "생산1팀", amount: 50000 },
+        { event: "본인 결혼식", name: "정연택", affiliation: "기술팀", amount: 50000 },
+        { event: "본인 결혼식", name: "정인숙", affiliation: "예전 동료", amount: 50000 },
+        { event: "본인 결혼식", name: "김창길", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "황원모", affiliation: "재무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "정덕규", affiliation: "생산2-2", amount: 50000 },
+        { event: "본인 결혼식", name: "김형태", affiliation: "혁식팀", amount: 50000 },
+        { event: "본인 결혼식", name: "윤성표", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "최소희", affiliation: "기술팀", amount: 50000 },
+        { event: "본인 결혼식", name: "한범희", affiliation: "기술팀", amount: 50000 },
+        { event: "본인 결혼식", name: "라승환", affiliation: "기술팀", amount: 50000 },
+        { event: "본인 결혼식", name: "백승원", affiliation: "환경안전", amount: 50000 },
+        { event: "본인 결혼식", name: "박이주", affiliation: "예전 동료", amount: 50000 },
+        { event: "본인 결혼식", name: "오정호", affiliation: "SCM팀", amount: 30000 },
+        { event: "본인 결혼식", name: "김경렬", affiliation: "예전 동료", amount: 50000 },
+        { event: "본인 결혼식", name: "이점동", affiliation: "예전 동료", amount: 50000 },
+        { event: "본인 결혼식", name: "서영기", affiliation: "예전 동료", amount: 50000 },
+        { event: "본인 결혼식", name: "임우리", affiliation: "예전 동료", amount: 100000 },
+        { event: "본인 결혼식", name: "임성현", affiliation: "성진님 여친", amount: 50000 },
+        { event: "본인 결혼식", name: "이길홍", affiliation: "인사팀", amount: 50000 },
+        { event: "본인 결혼식", name: "양승윤", affiliation: "공무팀", amount: 50000 },
+        { event: "본인 결혼식", name: "김이창", affiliation: "생산2-1", amount: 50000 },
+        { event: "본인 결혼식", name: "곽선자", affiliation: "생산2-1", amount: 50000 },
+        { event: "본인 결혼식", name: "박정규", affiliation: "생산2-1", amount: 50000 },
+        { event: "본인 결혼식", name: "변영수", affiliation: "생산2-1", amount: 50000 },
+        { event: "본인 결혼식", name: "조택희", affiliation: "생산2-1", amount: 50000 },
+        { event: "본인 결혼식", name: "김정운", affiliation: "생산2-1", amount: 50000 },
+        { event: "본인 결혼식", name: "이재훈", affiliation: "생산2-1", amount: 50000 },
+        { event: "본인 결혼식", name: "조현민", affiliation: "CJ", amount: 50000 },
+        { event: "본인 결혼식", name: "김성규", affiliation: "생산2-1", amount: 50000 },
+        { event: "본인 결혼식", name: "최현", affiliation: "생산2-1", amount: 50000 },
+        { event: "본인 결혼식", name: "이현숙", affiliation: "SCM팀", amount: 50000 },
+        { event: "본인 결혼식", name: "이희원", affiliation: "SCM팀", amount: 50000 },
+        { event: "본인 결혼식", name: "정봉주", affiliation: "SCM팀", amount: 50000 },
+        { event: "본인 결혼식", name: "신태병", affiliation: "SCM팀", amount: 50000 },
+        { event: "본인 결혼식", name: "김동언", affiliation: "영업팀", amount: 50000 },
+        { event: "본인 결혼식", name: "박민영", affiliation: "예전 동료", amount: 50000 },
+        { event: "본인 결혼식", name: "박민정", affiliation: "영업팀", amount: 30000 },
+        { event: "본인 결혼식", name: "조은희", affiliation: "생산2-1", amount: 30000 },
+        { event: "본인 결혼식", name: "이동근", affiliation: "생산2-1", amount: 30000 },
+        { event: "본인 결혼식", name: "김병규", affiliation: "생산2-1", amount: 30000 },
+        { event: "본인 결혼식", name: "박상배", affiliation: "신세기", amount: 50000 },
+        { event: "본인 결혼식", name: "정해인", affiliation: "신세기", amount: 50000 },
+        { event: "본인 결혼식", name: "최갑순", affiliation: "신세기", amount: 50000 },
+        { event: "본인 결혼식", name: "이신행", affiliation: "성남심사원", amount: 100000 },
+        { event: "본인 결혼식", name: "안광훈", affiliation: "예전 동료", amount: 50000 },
+        { event: "본인 결혼식", name: "김선표", affiliation: "연구소", amount: 50000 },
+        { event: "본인 결혼식", name: "김문준", affiliation: "CJ 푸드빌", amount: 50000 },
+        { event: "본인 결혼식", name: "이창용", affiliation: "부산공장", amount: 100000 },
+        { event: "본인 결혼식", name: "유성호", affiliation: "식품안전정보원", amount: 70000 },
+        { event: "본인 결혼식", name: "권용성", affiliation: "예전 동료", amount: 50000 },
+        { event: "본인 결혼식", name: "이춘근", affiliation: "CJ남원저온센터", amount: 50000 },
+        { event: "본인 결혼식", name: "최영성", affiliation: "GMF생산팀장", amount: 50000 },
+        { event: "본인 결혼식", name: "염선민", affiliation: "생산총괄", amount: 50000 },
+        { event: "본인 결혼식", name: "심아영", affiliation: "생산총괄", amount: 30000 },
+        { event: "본인 결혼식", name: "김한익", affiliation: "생산총괄", amount: 50000 },
+        { event: "본인 결혼식", name: "김태연", affiliation: "생산총괄", amount: 50000 },
+        { event: "본인 결혼식", name: "최정운", affiliation: "생산총괄", amount: 50000 },
+        { event: "본인 결혼식", name: "정지현", affiliation: "생산총괄", amount: 50000 },
+        { event: "본인 결혼식", name: "이철우", affiliation: "생산총괄", amount: 50000 },
+        { event: "본인 결혼식", name: "곽은석", affiliation: "생산총괄", amount: 50000 },
+        { event: "본인 결혼식", name: "전명우", affiliation: "CJ", amount: 50000 },
+        { event: "본인 결혼식", name: "박연수", affiliation: "JCI 대표이사", amount: 100000 },
+        { event: "본인 결혼식", name: "박주홍", affiliation: "공장장님", amount: 50000 },
+        { event: "본인 결혼식", name: "이도현", affiliation: "4기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "박인근", affiliation: "3기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "최능원", affiliation: "1기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "장춘호", affiliation: "남원농구", amount: 50000 },
+        { event: "본인 결혼식", name: "김현중", affiliation: "남원농구", amount: 50000 },
+        { event: "본인 결혼식", name: "남기만", affiliation: "2기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "권경재", affiliation: "8기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "김준상", affiliation: "8기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "최일기", affiliation: "1기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "신현규", affiliation: "18기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "황상연", affiliation: "10기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "배수찬", affiliation: "10기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "김진문", affiliation: "11기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "이찬옥", affiliation: "14기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "이명석", affiliation: "11기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "이광현", affiliation: "10기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "심용보", affiliation: "2기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "김정용", affiliation: "9기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "조철인", affiliation: "9기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "이사현", affiliation: "24기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "김현영,김수진", affiliation: "22기 은하수", amount: 30000 },
+        { event: "본인 결혼식", name: "오현진", affiliation: "22기 은하수", amount: 30000 },
+        { event: "본인 결혼식", name: "이주희", affiliation: "11기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "고범준", affiliation: "8기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "정숙진", affiliation: "11기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "최광선", affiliation: "14기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "이규태", affiliation: "16기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "정갑수", affiliation: "12기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "국윤성", affiliation: "12기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "홍민호", affiliation: "12기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "임준현", affiliation: "12기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "김영민", affiliation: "12기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "이태경", affiliation: "12기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "임정연", affiliation: "13기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "배재용", affiliation: "13기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "최은선", affiliation: "12기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "이은숙", affiliation: "12기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "문남용", affiliation: "12기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "최성진", affiliation: "14기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "송상현", affiliation: "14기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "박승민", affiliation: "14기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "지영석", affiliation: "14기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "소유섭", affiliation: "14기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "여은주", affiliation: "14기 은하수", amount: 200000 },
+        { event: "본인 결혼식", name: "김경주", affiliation: "14기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "전장호", affiliation: "14기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "소지영", affiliation: "14기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "김미영", affiliation: "예전 동료", amount: 50000 },
+        { event: "본인 결혼식", name: "방규철", affiliation: "예전 동료", amount: 50000 },
+        { event: "본인 결혼식", name: "김범식", affiliation: "남원농구", amount: 50000 },
+        { event: "본인 결혼식", name: "소현선", affiliation: "-", amount: 50000 },
+        { event: "본인 결혼식", name: "이은세", affiliation: "15기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "김미선", affiliation: "9기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "배영애", affiliation: "12기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "문정은", affiliation: "12기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "강동건", affiliation: "15기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "배두현", affiliation: "15기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "천동영", affiliation: "15기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "김동영", affiliation: "16기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "송재범", affiliation: "5기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "김병현", affiliation: "5기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "장두석", affiliation: "1기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "김미경", affiliation: "13기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "최선영", affiliation: "12기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "고기동", affiliation: "12기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "최윤실", affiliation: "12기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "김정모", affiliation: "12기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "안인혜", affiliation: "15기 은하수", amount: 30000 },
+        { event: "본인 결혼식", name: "진입명", affiliation: "13기 은하수", amount: 30000 },
+        { event: "본인 결혼식", name: "김서정", affiliation: "13기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "박평훈", affiliation: "6기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "박대성", affiliation: "6기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "이영훈", affiliation: "18기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "임형열", affiliation: "고딩 친구", amount: 200000 },
+        { event: "본인 결혼식", name: "이진용", affiliation: "고딩 친구", amount: 100000 },
+        { event: "본인 결혼식", name: "이수근", affiliation: "고딩 친구", amount: 50000 },
+        { event: "본인 결혼식", name: "김지형", affiliation: "고딩 친구", amount: 50000 },
+        { event: "본인 결혼식", name: "임준영", affiliation: "고딩 친구", amount: 50000 },
+        { event: "본인 결혼식", name: "이승엽", affiliation: "고딩 친구", amount: 100000 },
+        { event: "본인 결혼식", name: "김진택", affiliation: "고딩 친구", amount: 50000 },
+        { event: "본인 결혼식", name: "강철구", affiliation: "고딩 친구", amount: 100000 },
+        { event: "본인 결혼식", name: "백민정", affiliation: "12기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "김성진", affiliation: "-", amount: 50000 },
+        { event: "본인 결혼식", name: "황영규", affiliation: "고딩 친구", amount: 100000 },
+        { event: "본인 결혼식", name: "최재원", affiliation: "고딩 친구", amount: 100000 },
+        { event: "본인 결혼식", name: "김인수", affiliation: "9기 은하수", amount: 150000 },
+        { event: "본인 결혼식", name: "김정환", affiliation: "고딩 친구", amount: 100000 },
+        { event: "본인 결혼식", name: "하정만", affiliation: "선생님", amount: 50000 },
+        { event: "본인 결혼식", name: "이성원,박소영", affiliation: "예전 동료", amount: 100000 },
+        { event: "본인 결혼식", name: "김의수", affiliation: "세이버스", amount: 100000 },
+        { event: "본인 결혼식", name: "이연정", affiliation: "초딩 친구", amount: 100000 },
+        { event: "본인 결혼식", name: "송호석", affiliation: "세이버스", amount: 50000 },
+        { event: "본인 결혼식", name: "전송묵", affiliation: "선생님", amount: 50000 },
+        { event: "본인 결혼식", name: "황여생", affiliation: "세이버스", amount: 100000 },
+        { event: "본인 결혼식", name: "지윤환", affiliation: "세이버스", amount: 70000 },
+        { event: "본인 결혼식", name: "은미누나", affiliation: "소리내음", amount: 50000 },
+        { event: "본인 결혼식", name: "김성원", affiliation: "소리내음", amount: 100000 },
+        { event: "본인 결혼식", name: "정방숙", affiliation: "소리내음", amount: 50000 },
+        { event: "본인 결혼식", name: "김민재", affiliation: "소리내음", amount: 50000 },
+        { event: "본인 결혼식", name: "허관회(서준)", affiliation: "고딩 친구", amount: 100000 },
+        { event: "본인 결혼식", name: "이선숙", affiliation: "선생님", amount: 50000 },
+        { event: "본인 결혼식", name: "강선화", affiliation: "해바라기 은하수미용실", amount: 50000 },
+        { event: "본인 결혼식", name: "박원균", affiliation: "남원농구", amount: 50000 },
+        { event: "본인 결혼식", name: "오성기", affiliation: "남원농구", amount: 50000 },
+        { event: "본인 결혼식", name: "최혁용", affiliation: "남원농구", amount: 50000 },
+        { event: "본인 결혼식", name: "황선우", affiliation: "남원농구", amount: 50000 },
+        { event: "본인 결혼식", name: "유경열", affiliation: "영우냉동", amount: 100000 },
+        { event: "본인 결혼식", name: "최홍상", affiliation: "9기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "채병훈", affiliation: "다원", amount: 50000 },
+        { event: "본인 결혼식", name: "이승재", affiliation: "친구", amount: 100000 },
+        { event: "본인 결혼식", name: "김창영", affiliation: "농구", amount: 100000 },
+        { event: "본인 결혼식", name: "김준홍", affiliation: "9기 은하수", amount: 70000 },
+        { event: "본인 결혼식", name: "신현관", affiliation: "세이버스", amount: 50000 },
+        { event: "본인 결혼식", name: "김종수", affiliation: "친구", amount: 50000 },
+        { event: "본인 결혼식", name: "정현철", affiliation: "친구", amount: 200000 },
+        { event: "본인 결혼식", name: "강이경", affiliation: "선생님", amount: 50000 },
+        { event: "본인 결혼식", name: "설민수", affiliation: "12기 은하수", amount: 100000 },
+        { event: "본인 결혼식", name: "임동환", affiliation: "농구", amount: 30000 },
+        { event: "본인 결혼식", name: "탁일진", affiliation: "1기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "윤정희", affiliation: "선생님", amount: 50000 },
+        { event: "본인 결혼식", name: "양도영", affiliation: "11기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "오승재", affiliation: "남원농구", amount: 50000 },
+        { event: "본인 결혼식", name: "오혜진", affiliation: "소리내음", amount: 50000 },
+        { event: "본인 결혼식", name: "구미숙", affiliation: "소리내음", amount: 50000 },
+        { event: "본인 결혼식", name: "진인순", affiliation: "소리내음", amount: 50000 },
+        { event: "본인 결혼식", name: "진정권", affiliation: "소리내음", amount: 50000 },
+        { event: "본인 결혼식", name: "김현태", affiliation: "소리내음", amount: 50000 },
+        { event: "본인 결혼식", name: "이옥희", affiliation: "소리내음", amount: 50000 },
+        { event: "본인 결혼식", name: "강태구", affiliation: "소리내음", amount: 50000 },
+        { event: "본인 결혼식", name: "김관호", affiliation: "소리내음", amount: 50000 },
+        { event: "본인 결혼식", name: "송재득", affiliation: "세이버스", amount: 100000 },
+        { event: "본인 결혼식", name: "오종석", affiliation: "세이버스", amount: 50000 },
+        { event: "본인 결혼식", name: "서석", affiliation: "세이버스", amount: 100000 },
+        { event: "본인 결혼식", name: "임만규", affiliation: "세이버스", amount: 50000 },
+        { event: "본인 결혼식", name: "김수원", affiliation: "세이버스", amount: 50000 },
+        { event: "본인 결혼식", name: "심민수", affiliation: "세이버스", amount: 100000 },
+        { event: "본인 결혼식", name: "강신열", affiliation: "세이버스", amount: 100000 },
+        { event: "본인 결혼식", name: "오현철", affiliation: "세이버스", amount: 30000 },
+        { event: "본인 결혼식", name: "장민수", affiliation: "세이버스", amount: 30000 },
+        { event: "본인 결혼식", name: "국상환", affiliation: "세이버스", amount: 50000 },
+        { event: "본인 결혼식", name: "태희성", affiliation: "세이버스", amount: 50000 },
+        { event: "본인 결혼식", name: "안성현", affiliation: "세이버스", amount: 50000 },
+        { event: "본인 결혼식", name: "이현관", affiliation: "세이버스", amount: 200000 },
+        { event: "본인 결혼식", name: "이후영", affiliation: "세이버스", amount: 50000 },
+        { event: "본인 결혼식", name: "최명", affiliation: "세이버스", amount: 50000 },
+        { event: "본인 결혼식", name: "정동진", affiliation: "세이버스", amount: 50000 },
+        { event: "본인 결혼식", name: "정수효", affiliation: "세이버스", amount: 100000 },
+        { event: "본인 결혼식", name: "김정훈", affiliation: "세이버스", amount: 100000 },
+        { event: "본인 결혼식", name: "유민성", affiliation: "세이버스", amount: 100000 },
+        { event: "본인 결혼식", name: "류성민", affiliation: "세이버스", amount: 50000 },
+        { event: "본인 결혼식", name: "국민구", affiliation: "세이버스", amount: 100000 },
+        { event: "본인 결혼식", name: "유영석", affiliation: "세이버스", amount: 100000 },
+        { event: "본인 결혼식", name: "서종원", affiliation: "한국음료", amount: 50000 },
+        { event: "본인 결혼식", name: "박원성", affiliation: "15기 은하수", amount: 50000 },
+        { event: "본인 결혼식", name: "방해덕", affiliation: "예전 동료", amount: 50000 },
+        { event: "본인 결혼식", name: "김상아", affiliation: "기술팀", amount: 50000 },
+        { event: "본인 결혼식", name: "배문균", affiliation: "CJ", amount: 50000 },
+        { event: "본인 결혼식", name: "강도령", affiliation: "CJ", amount: 50000 }
+    ];
+
+    const searchInput = document.getElementById('searchInput');
+    const tableBody = document.getElementById('tableBody');
+    const totalAmountSpan = document.getElementById('totalAmount');
+
+    // 숫자를 콤마(,)가 포함된 원화 형식으로 변환
+    function formatCurrency(number) {
+        return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    // 테이블 및 총 금액 렌더링 함수
+    function renderTable(data) {
+        tableBody.innerHTML = '';
+        let total = 0;
+
+        if (data.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="4" class="no-data">검색 결과가 없습니다.</td></tr>';
+            totalAmountSpan.innerText = '0';
+            return;
+        }
+
+        data.forEach(item => {
+            total += item.amount;
+            const row = `<tr>
+                <td>${item.event}</td>
+                <td><strong>${item.name}</strong></td>
+                <td>${item.affiliation || '-'}</td>
+                <td class="amount">${formatCurrency(item.amount)}</td>
+            </tr>`;
+            tableBody.insertAdjacentHTML('beforeend', row);
+        });
+
+        totalAmountSpan.innerText = formatCurrency(total);
+    }
+
+    // 검색 필터링 로직
+    function filterData() {
+        const query = searchInput.value.trim().toLowerCase();
+        
+        const filteredData = rawData.filter(item => {
+            const eventMatch = item.event.toLowerCase().includes(query);
+            const nameMatch = item.name.toLowerCase().includes(query);
+            const affiliationMatch = (item.affiliation || '').toLowerCase().includes(query);
+            
+            return eventMatch || nameMatch || affiliationMatch;
+        });
+
+        renderTable(filteredData);
+    }
+
+    // 이벤트 리스너 등록 (타이핑 할 때마다 실시간 검색)
+    searchInput.addEventListener('input', filterData);
+
+    // 초기 데이터 렌더링
+    renderTable(rawData);
+</script>
+
+</body>
+</html>
